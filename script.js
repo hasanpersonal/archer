@@ -26,6 +26,7 @@ const Game = {
     gravity: 0.22,
     particles: [],
     floatTexts: [],
+    shockwaves: [], // New for target hit explosion
     shakeAmount: 0 // For screen shake effect
 };
 
@@ -53,7 +54,7 @@ let obstacle = {
 // Audio System (Synthesized sounds)
 let audioCtx = null;
 function playSound(type) {
-    if (!audioCtx) return; // Will initialize on first interaction
+    if (!audioCtx) return; 
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
@@ -97,7 +98,6 @@ function updateWind() {
 }
 
 function initAndStartGame() {
-    // Initialize Audio Context on user interaction
     if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     }
@@ -141,7 +141,7 @@ function setupControls() {
         let coords = getCanvasCoords(e);
         if (Math.hypot(coords.x - bow.x, coords.y - bow.y) < 150) {
             arrow.isDragging = true;
-            arrow.trail = []; // Clear previous trail
+            arrow.trail = []; 
         }
     };
 
@@ -194,8 +194,8 @@ function spawnParticles(x, y, color, amount = 30) {
     for(let i=0; i<amount; i++) {
         Game.particles.push({
             x: x, y: y,
-            vx: (Math.random() - 0.5) * 15,
-            vy: (Math.random() - 0.5) * 15,
+            vx: (Math.random() - 0.5) * 20, // Increased speed for better explosion
+            vy: (Math.random() - 0.5) * 20,
             radius: Math.random() * 5 + 2,
             alpha: 1,
             color: color
@@ -220,7 +220,6 @@ function checkCollisions() {
         arrow.y > obstacle.y - obstacle.height/2 && 
         arrow.y < obstacle.y + obstacle.height/2) {
         
-        // Bounce off shield
         arrow.vx *= -0.5;
         arrow.vy += (Math.random() - 0.5) * 5;
         playSound('bounce');
@@ -233,27 +232,29 @@ function checkCollisions() {
     if (arrow.x >= target.x - 20 && arrow.x <= target.x + 30) {
         let hitDist = Math.abs(arrow.y - target.y);
         
-        if (hitDist <= target.radius && arrow.vx > 0) { // Only count if moving forward
+        if (hitDist <= target.radius && arrow.vx > 0) { 
             let basePoints = 0;
             let label = "";
             let color = "#ffffff";
 
             if (hitDist <= target.radius * 0.18) {
                 basePoints = 100; label = "BULLSEYE!"; color = "#00ffcc";
-                triggerScreenShake(8); // Big shake for bullseye
+                triggerScreenShake(10); 
             } else if (hitDist <= target.radius * 0.5) {
                 basePoints = 50; label = "GREAT!"; color = "#0099ff";
-                triggerScreenShake(4);
+                triggerScreenShake(6);
             } else {
                 basePoints = 20; label = "HIT!"; color = "#ffcc00";
-                triggerScreenShake(2);
+                triggerScreenShake(3);
             }
 
             let earnedPoints = basePoints * Game.combo;
             Game.score += earnedPoints;
             ui.score.innerText = Game.score;
             
-            spawnParticles(arrow.x, arrow.y, color);
+            // TARGET HIT EFFECTS - Explodes from the center of the target!
+            spawnParticles(target.x, target.y, color, 60); 
+            Game.shockwaves.push({ x: target.x, y: target.y, radius: target.radius, alpha: 1, color: color });
             triggerScoreText(target.x - 60, target.y - 50, `${label} +${earnedPoints}`, color);
             
             Game.combo++;
@@ -301,7 +302,7 @@ function resetArrow(isMiss) {
 
 function restartGame() {
     Game.score = 0; Game.arrows = 5; Game.combo = 1; Game.isOver = false;
-    Game.particles = []; Game.floatTexts = [];
+    Game.particles = []; Game.floatTexts = []; Game.shockwaves = [];
     target.speed = target.baseSpeed; target.radius = target.baseRadius;
     obstacle.speed = 5;
     
@@ -327,7 +328,7 @@ function gameLoop() {
         let dx = (Math.random() - 0.5) * Game.shakeAmount;
         let dy = (Math.random() - 0.5) * Game.shakeAmount;
         ctx.translate(dx, dy);
-        Game.shakeAmount *= 0.9; // Decay
+        Game.shakeAmount *= 0.9; 
         if(Game.shakeAmount < 0.5) Game.shakeAmount = 0;
     }
 
@@ -354,7 +355,6 @@ function gameLoop() {
 
     // 2. Projectile Physics & Trail Update
     if (arrow.isFlying) {
-        // Record trail
         arrow.trail.push({x: arrow.x, y: arrow.y});
         if(arrow.trail.length > 15) arrow.trail.shift();
 
@@ -365,7 +365,6 @@ function gameLoop() {
 
         checkCollisions();
 
-        // Check off-screen
         if (arrow.x > canvas.width + 100 || arrow.y > canvas.height + 150 || arrow.y < -150) {
             resetArrow(true);
         }
@@ -421,7 +420,25 @@ function gameLoop() {
     }
     ctx.shadowBlur = 0;
 
-    // 7. Render Bow
+    // 7. Render Shockwaves (Target Hit Effect)
+    for (let i = Game.shockwaves.length - 1; i >= 0; i--) {
+        let sw = Game.shockwaves[i];
+        sw.radius += 10; // Expand ring
+        sw.alpha -= 0.04; // Fade out
+        
+        if (sw.alpha <= 0) {
+            Game.shockwaves.splice(i, 1);
+        } else {
+            ctx.globalAlpha = sw.alpha;
+            ctx.strokeStyle = sw.color;
+            ctx.lineWidth = 6;
+            ctx.shadowBlur = 20; ctx.shadowColor = sw.color;
+            ctx.beginPath(); ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2); ctx.stroke();
+            ctx.shadowBlur = 0; ctx.globalAlpha = 1.0;
+        }
+    }
+
+    // 8. Render Bow
     ctx.lineWidth = 6;
     ctx.strokeStyle = "#00ffcc";
     ctx.shadowBlur = 15; ctx.shadowColor = "#00ffcc";
@@ -438,29 +455,26 @@ function gameLoop() {
     ctx.lineTo(bow.x - 5, bow.y + bow.radius - 8);
     ctx.stroke();
 
-    // 8. Render Arrow
+    // 9. Render Arrow
     if (arrow.isFlying || arrow.isDragging) {
         ctx.save();
         ctx.translate(arrow.isDragging ? bow.x + arrow.pullX : arrow.x, arrow.isDragging ? bow.y + arrow.pullY : arrow.y);
         ctx.rotate(arrow.angle);
 
-        // Shaft
         ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(-arrow.length, 0); ctx.lineTo(0, 0); ctx.stroke();
 
-        // Feathers
         ctx.fillStyle = "#ffcc00";
         ctx.beginPath(); ctx.moveTo(-arrow.length, 0); ctx.lineTo(-arrow.length - 12, -10);
         ctx.lineTo(-arrow.length + 5, 0); ctx.lineTo(-arrow.length - 12, 10); ctx.closePath(); ctx.fill();
 
-        // Glowing Tip
         ctx.fillStyle = "#00ffcc"; ctx.shadowBlur = 15; ctx.shadowColor = "#00ffcc";
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-16, -8); ctx.lineTo(-16, 8); ctx.closePath(); ctx.fill();
         ctx.restore();
         ctx.shadowBlur = 0;
     }
 
-    // 9. Render Particles
+    // 10. Render Particles
     for (let i = Game.particles.length - 1; i >= 0; i--) {
         let p = Game.particles[i];
         p.x += p.vx; p.y += p.vy;
@@ -477,7 +491,7 @@ function gameLoop() {
         }
     }
 
-    // 10. Render Floating Text
+    // 11. Render Floating Text
     for (let i = Game.floatTexts.length - 1; i >= 0; i--) {
         let ft = Game.floatTexts[i];
         ft.y -= 1.5;
@@ -495,6 +509,6 @@ function gameLoop() {
         }
     }
 
-    ctx.restore(); // Restore context for screen shake
+    ctx.restore(); 
     requestAnimationFrame(gameLoop);
 }
