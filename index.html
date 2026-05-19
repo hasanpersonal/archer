@@ -8,10 +8,8 @@
 </head>
 <body>
 
-    <!-- CRT Scanline Effect -->
     <div class="scanlines"></div>
 
-    <!-- Pro Rotation Warning -->
     <div id="rotate-overlay">
         <div class="device-icon"></div>
         <div class="rotate-title">Orientation Lock</div>
@@ -19,10 +17,8 @@
         <p><mark><i>Developed by Imrul Hasan</i></mark></p>
     </div>
 
-    <!-- Game Context -->
     <div id="game-container">
         
-        <!-- Interactive Advanced HUD -->
         <div id="hud">
             <div class="hud-left">
                 <div class="hud-item text-cyan">SCORE: <span id="score-txt">0</span></div>
@@ -34,16 +30,14 @@
             </div>
         </div>
 
-        <!-- In-Game Bottom Controls -->
         <div id="in-game-controls" class="in-game-controls">
             <button class="btn btn-small" onclick="restartGame()">Restart System</button>
         </div>
 
-        <!-- Start Screen -->
         <div id="start-screen" class="screen-overlay">
             <h1 class="glitch" data-text="CYBER ARCHERY">CYBER ARCHERY</h1>
-            <h2 style="color: #ff3366; letter-spacing: 4px; margin-bottom: 20px;">ELITE EDITION</h2>
-            <p style="color: #a0aabf; margin-bottom: 35px; text-align:center; max-width:600px; font-size: 18px; line-height: 1.6;">
+            <h2 class="subtitle">ELITE EDITION</h2>
+            <p class="description">
                 Drag back from the bow to aim & release. Watch the wind speed!<br> 
                 <strong style="color:#ffcc00">WARNING:</strong> Avoid the moving shield.<br>
                 @imrul hasan
@@ -51,7 +45,6 @@
             <button class="btn" onclick="initAndStartGame()">Initialize Game</button>
         </div>
 
-        <!-- Game Over Screen -->
         <div id="game-over-screen" class="screen-overlay" style="display: none;">
             <h1 style="color: #ff3366; text-shadow: 0 0 30px rgba(255,51,102,0.8);">SYSTEM FAILURE</h1>
             <div class="score-board">Final Score: <span id="final-score">0</span></div>
@@ -62,7 +55,6 @@
             </div>
         </div>
 
-        <!-- Canvas -->
         <canvas id="gameCanvas" width="1334" height="750"></canvas>
     </div>
 
